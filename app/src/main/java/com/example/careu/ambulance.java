@@ -47,8 +47,7 @@ import java.util.Locale;
 public class ambulance extends AppCompatActivity {
 
 
-    //sessionManagement sessionManagement1 = new sessionManagement(ambulance.this);
-    //String user = sessionManagement1.getSession();
+
 
      String apiurl="http://10.0.2.2/careu-php/sendAlertSMS.php?userName=";
 
@@ -56,11 +55,12 @@ public class ambulance extends AppCompatActivity {
     private static final int REQUEST_CODE_LOCATION_PERMISSION = 1;
     EditText note;
     TextView txtAddress;
-    CheckBox checkLocation;
+    CheckBox checkLocation,cb_sendSMS;
     double latitude;
     double longitude;
     String strLat;
     String strLong;
+    String district;
 
     FusedLocationProviderClient fusedLocationProviderClient;
 
@@ -73,11 +73,12 @@ public class ambulance extends AppCompatActivity {
         districtSpinner=findViewById(R.id.disSpinner);
         policeSpinner=findViewById(R.id.policeSpinner);
         patientSpinner=findViewById(R.id.patientSpinner);
+        cb_sendSMS=findViewById(R.id.cb_send);
 
         sessionManagement sessionManagement1 = new sessionManagement(ambulance.this);
         String user = sessionManagement1.getSession();
 
-        String apiurl="http://10.0.2.2/careu-php/sendAlertSMS.php?userName="+user;
+        apiurl="http://10.0.2.2/careu-php/sendAlertSMS.php?userName="+user;
         districtSpinner = findViewById(R.id.disSpinner);
         policeSpinner = findViewById(R.id.policeSpinner);
         patientSpinner = findViewById(R.id.patientSpinner);
@@ -85,12 +86,19 @@ public class ambulance extends AppCompatActivity {
 
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
-        if (ContextCompat.checkSelfPermission(
-                getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION
-        ) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                    ambulance.this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+        cb_sendSMS.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(cb_sendSMS.isChecked()){
+                    cb_sendSMS.setTextColor(getResources().getColor(R.color.colorAccent));
+                }else {
+                    cb_sendSMS.setTextColor(getResources().getColor(R.color.colorBlack));
+                }
+            }
+        });
+
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(ambulance.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     REQUEST_CODE_LOCATION_PERMISSION
             );
         } else {
@@ -99,6 +107,24 @@ public class ambulance extends AppCompatActivity {
 
         getAddress();
 
+    }
+
+    private int getIndexDistrict(Spinner districtSpinner, String district) {
+        for(int i=0;i<districtSpinner.getCount();i++){
+            if(districtSpinner.getItemAtPosition(i).toString().contains(district)){
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private int getIndexPolice(Spinner policeSpinner, String district) {
+        for(int i=0;i<policeSpinner.getCount();i++){
+            if(policeSpinner.getItemAtPosition(i).toString().contains(district)){
+                return i;
+            }
+        }
+        return 0;
     }
 
     @Override
@@ -159,6 +185,11 @@ public class ambulance extends AppCompatActivity {
 
     public void requestAmbulance(View view) {
 
+        if (cb_sendSMS.isChecked()){
+            fetch_data();
+
+        }
+
 
         String type = "ambulance";
         Calendar cc = Calendar.getInstance();
@@ -193,10 +224,7 @@ public class ambulance extends AppCompatActivity {
         backgroundWorkerRequest.execute(type, username, date, time, district, policeStation, noOfPatients, description, strLat, strLong);
     }
 
-    public void send(View view) {
 
-        fetch_data();
-    }
 
     public void fetch_data() {
 
@@ -229,42 +257,28 @@ public class ambulance extends AppCompatActivity {
 
             @Override
             protected void onPostExecute(String result) {
-                // Toast.makeText(getApplicationContext(),result,Toast.LENGTH_SHORT).show();
+
                 try {
                     JSONObject jsonResult = new JSONObject(result);
                     int success = jsonResult.getInt("success");
                     if (success == 1) {
-                        // Toast.makeText(getApplicationContext(),"There is cars in store",Toast.LENGTH_SHORT).show();
+
                         JSONArray cars = jsonResult.getJSONArray("cars");
                         for (int i = 0; i < cars.length(); i++) {
                             JSONObject car = cars.getJSONObject(i);
-                            // int id= car.getInt("id");
-                            //int id= car.getInt("relativeId");
-                            String name = car.getString("name");
-                            //double price = car.getDouble("price");
+
+                            //String name = car.getString("name");
                             int phone = car.getInt("phoneNumber");
-                            //String description = car.getString("description");
-                            // String line = name + "-" + phone;
-                            //String line = id +"-"+name + "-"+ price + "-"+ description;
-                            // adapter.add(line);
 
                             SmsManager smsManager = SmsManager.getDefault();
-                            smsManager.sendTextMessage(String.valueOf(phone), null, "I am In trouble !!", null, null);
-
-
-                            // Intent intent=new Intent(getApplicationContext(),MainActivity.class);
-                            //PendingIntent pi=PendingIntent.getActivity(getApplicationContext(), 0, intent,0);
-
-                            //Get the SmsManager instance and call the sendTextMessage method to send message
-                            // SmsManager sms=SmsManager.getDefault();
-                            //sms.sendTextMessage(no, null, msg, pi,null);
+                            smsManager.sendTextMessage(String.valueOf(phone), null, "It's urgent..Need your help!", null, null);
 
                             Toast.makeText(getApplicationContext(), "Message Sent successfully!", Toast.LENGTH_SHORT).show();
 
 
                         }
                     } else {
-                        Toast.makeText(getApplicationContext(), "error massage ", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "Error!! please add relatives first. ", Toast.LENGTH_SHORT).show();
                     }
 
                 } catch (JSONException e) {
@@ -299,6 +313,10 @@ public class ambulance extends AppCompatActivity {
                     try {
                         List<Address> addresses = geocoder.getFromLocation(location.getLatitude(),location.getLongitude(),1);
                         txtAddress.setText(addresses.get(0).getAddressLine(0));
+                        district = addresses.get(0).getSubAdminArea();
+
+                        districtSpinner.setSelection(getIndexDistrict(districtSpinner,district));
+                        policeSpinner.setSelection(getIndexPolice(policeSpinner,district));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
